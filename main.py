@@ -4,9 +4,11 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchvision import datasets
 
 from model_factory import ModelFactory
+from utils import WarmupScheduler
 
 
 def opts() -> argparse.ArgumentParser:
@@ -43,7 +45,7 @@ def opts() -> argparse.ArgumentParser:
     parser.add_argument(
         "--lr",
         type=float,
-        default=0.1,
+        default=0.01,
         metavar="LR",
         help="learning rate (default: 0.01)",
     )
@@ -55,7 +57,7 @@ def opts() -> argparse.ArgumentParser:
         help="SGD momentum (default: 0.5)",
     )
     parser.add_argument(
-        "--seed", type=int, default=1, metavar="S", help="random seed (default: 1)"
+        "--seed", type=int, default=2929, metavar="S", help="random seed (default: 2929)"
     )
     parser.add_argument(
         "--log-interval",
@@ -74,9 +76,40 @@ def opts() -> argparse.ArgumentParser:
     parser.add_argument(
         "--num_workers",
         type=int,
-        default=10,
+        default=8,
         metavar="NW",
         help="number of workers for data loading",
+    )
+    parser.add_argument(
+        "--warmup",
+        action="store_true",
+        help="Use a warmup scheduler",
+    )
+    parser.add_argument(
+        "--warmup_iters",
+        type=int,
+        default=100,
+        metavar="WI",
+        help="Number of warmup iterations",
+    )
+    parser.add_argument(
+        "--scheduler",
+        action="store_true",
+        help="Use a ReduceLROnPlateau scheduler",
+    )
+    parser.add_argument(
+        "--scheduler_patience",
+        type=int,
+        default=5,
+        metavar="SP",
+        help="Patience for ReduceLROnPlateau scheduler",
+    )
+    parser.add_argument(
+        "--scheduler_factor",
+        type=float,
+        default=0.5,
+        metavar="SF",
+        help="Factor for ReduceLROnPlateau scheduler",
     )
     args = parser.parse_args()
     return args
@@ -89,6 +122,9 @@ def train(
     use_cuda: bool,
     epoch: int,
     args: argparse.ArgumentParser,
+    warmup_scheduler: WarmupScheduler,
+    plateau_scheduler: ReduceLROnPlateau,
+    val_loss: float,
 ) -> None:
     """Default Training Loop.
 
@@ -99,6 +135,9 @@ def train(
         use_cuda (bool): Whether to use cuda or not
         epoch (int): Current epoch
         args (argparse.ArgumentParser): Arguments parsed from command line
+        warmup_scheduler (WarmupScheduler): Warmup scheduler
+        plateau_scheduler (ReduceLROnPlateau): Plateau scheduler
+        val_loss (float): Validation loss
     """
     model.train()
     correct = 0
@@ -111,16 +150,19 @@ def train(
         loss = criterion(output, target)
         loss.backward()
         optimizer.step()
+        if not warmup_scheduler.is_warmup_done() and args.warmup:
+            warmup_scheduler.step()
         pred = output.data.max(1, keepdim=True)[1]
         correct += pred.eq(target.data.view_as(pred)).cpu().sum()
         if batch_idx % args.log_interval == 0:
             print(
-                "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}".format(
+                "Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tlr: {}".format(
                     epoch,
                     batch_idx * len(data),
                     len(train_loader.dataset),
                     100.0 * batch_idx / len(train_loader),
                     loss.data.item(),
+                    optimizer.param_groups[0]["lr"],
                 )
             )
     print(
@@ -130,6 +172,9 @@ def train(
             100.0 * correct / len(train_loader.dataset),
         )
     )
+
+    if (warmup_scheduler.is_warmup_done() or not args.warmup) and args.scheduler:
+        plateau_scheduler.step(val_loss)
 
 
 def validation(
@@ -211,13 +256,33 @@ def main():
     )
 
     # Setup optimizer
-    optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
+    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+
+    warmup_scheduler = WarmupScheduler(optimizer, args.warmup_iters, args.lr)
+    plateau_scheduler = ReduceLROnPlateau(
+        optimizer,
+        mode="min",
+        patience=args.scheduler_patience,
+        factor=args.scheduler_factor,
+        verbose=True,
+    )
 
     # Loop over the epochs
     best_val_loss = 1e8
+    val_loss = 1e8
     for epoch in range(1, args.epochs + 1):
         # training loop
-        train(model, optimizer, train_loader, use_cuda, epoch, args)
+        train(
+            model,
+            optimizer,
+            train_loader,
+            use_cuda,
+            epoch,
+            args,
+            warmup_scheduler,
+            plateau_scheduler,
+            val_loss,
+        )
         # validation loop
         val_loss = validation(model, val_loader, use_cuda)
         if val_loss < best_val_loss:

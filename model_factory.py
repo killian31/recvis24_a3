@@ -1,7 +1,9 @@
 """Python file to instantite the model and the transform that goes with it."""
 
+from torchvision.models import resnet18
+
 from data import data_transforms
-from model import Net
+from model import Net, ResNet
 
 
 class ModelFactory:
@@ -13,11 +15,19 @@ class ModelFactory:
     def init_model(self):
         if self.model_name == "basic_cnn":
             return Net()
+        elif self.model_name == "resnet":
+            return ResNet()
+        elif self.model_name == "resnet18_pretrained":
+            return resnet18(pretrained=True)
         else:
             raise NotImplementedError("Model not implemented")
 
     def init_transform(self):
-        if self.model_name == "basic_cnn":
+        if (
+            self.model_name == "basic_cnn"
+            or self.model_name == "resnet"
+            or self.model_name == "resnet18_pretrained"
+        ):
             return data_transforms
         else:
             raise NotImplementedError("Transform not implemented")

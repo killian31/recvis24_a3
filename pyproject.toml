@@ -4,11 +4,14 @@ version = "0.1.0"
 description = ""
 authors = ["killian31 <80256683+killian31@users.noreply.github.com>"]
 readme = "README.md"
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-numpy = "^2.1.3"
+numpy = "1.26.4"
 torch = "2.1.2"
+torchvision = "0.16.2"
+tqdm = "^4.67.0"
 
 
 [build-system]
