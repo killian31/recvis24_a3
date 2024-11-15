@@ -132,6 +132,13 @@ def opts() -> argparse.ArgumentParser:
         metavar="ESP",
         help="Patience for early stopping",
     )
+    parser.add_argument(
+        "--resume_from",
+        type=str,
+        default=None,
+        metavar="R",
+        help="Path to a model to train from",
+    )
     args = parser.parse_args()
     return args
 
@@ -252,6 +259,9 @@ def main():
 
     # load model and transform
     model, data_transforms = ModelFactory(args.model_name).get_all()
+
+    if args.resume_from is not None:
+        model.load_state_dict(torch.load(args.resume_from))
 
     if args.freeze_backbone:
         for name, param in model.named_parameters():
