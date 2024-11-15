@@ -6,7 +6,7 @@ import torchvision.transforms as transforms
 data_transforms = {
     "train": transforms.Compose(
         [
-            transforms.Resize((64, 64)),
+            transforms.Resize((224, 224)),
             transforms.RandomHorizontalFlip(),
             transforms.RandomRotation(15),
             transforms.ColorJitter(
@@ -25,7 +25,7 @@ data_transforms = {
     ),
     "val": transforms.Compose(
         [
-            transforms.Resize((64, 64)),
+            transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(
                 mean=[

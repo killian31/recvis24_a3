@@ -255,7 +255,7 @@ def main():
 
     if args.freeze_backbone:
         for name, param in model.named_parameters():
-            if "fc" not in name:
+            if "fc" not in name and "classifier" not in name:
                 param.requires_grad = False
 
     if use_cuda:
@@ -283,10 +283,10 @@ def main():
     )
 
     # Setup optimizer
-    optimizer = optim.Adam(
+    optimizer = optim.SGD(
         filter(lambda p: p.requires_grad, model.parameters()),
         lr=args.lr,
-        weight_decay=1e-5,
+        momentum=args.momentum,
     )
 
     warmup_scheduler = WarmupScheduler(optimizer, args.warmup_iters, args.lr)

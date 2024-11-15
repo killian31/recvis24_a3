@@ -1,10 +1,11 @@
 """Python file to instantite the model and the transform that goes with it."""
 
-import torch.nn as nn
-from torchvision.models import resnet18, resnet34, resnet50
+import timm
 
 from data import data_transforms
 from model import CustomCNN, Net, ResNet
+
+num_classes = 500
 
 
 class ModelFactory:
@@ -20,36 +21,18 @@ class ModelFactory:
             return ResNet()
         elif self.model_name == "custom_cnn":
             return CustomCNN()
-        elif self.model_name == "resnet18_pretrained":
-            model = resnet18(pretrained=True)
-            num_ftrs = model.fc.in_features
-            model.fc = nn.Linear(num_ftrs, 500)
-            return model
-        elif self.model_name == "resnet34_pretrained":
-            model = resnet34(pretrained=True)
-            num_ftrs = model.fc.in_features
-            model.fc = nn.Linear(num_ftrs, 500)
-            return model
-        elif self.model_name == "resnet50_pretrained":
-            model = resnet50(pretrained=True)
-            num_ftrs = model.fc.in_features
-            model.fc = nn.Linear(num_ftrs, 500)
-            return model
         else:
-            raise NotImplementedError("Model not implemented")
+            try:
+                return timm.create_model(
+                    self.model_name, pretrained=True, num_classes=num_classes
+                )
+            except:
+                raise ValueError(
+                    f"Model {self.model_name} not found in timm models or custom models"
+                )
 
     def init_transform(self):
-        if self.model_name in [
-            "basic_cnn",
-            "resnet",
-            "custom_cnn",
-            "resnet18_pretrained",
-            "resnet34_pretrained",
-            "resnet50_pretrained",
-        ]:
-            return data_transforms
-        else:
-            raise NotImplementedError("Transform not implemented")
+        return data_transforms
 
     def get_model(self):
         return self.model
