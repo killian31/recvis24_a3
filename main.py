@@ -120,6 +120,18 @@ def opts() -> argparse.ArgumentParser:
         action="store_true",
         help="Freeze the backbone of the model",
     )
+    parser.add_argument(
+        "--early_stopping",
+        action="store_true",
+        help="Use early stopping",
+    )
+    parser.add_argument(
+        "--early_stopping_patience",
+        type=int,
+        default=5,
+        metavar="ESP",
+        help="Patience for early stopping",
+    )
     args = parser.parse_args()
     return args
 
@@ -271,11 +283,10 @@ def main():
     )
 
     # Setup optimizer
-    optimizer = optim.SGD(
+    optimizer = optim.Adam(
         filter(lambda p: p.requires_grad, model.parameters()),
         lr=args.lr,
-        momentum=args.momentum,
-        weight_decay=1e-4,
+        weight_decay=1e-5,
     )
 
     warmup_scheduler = WarmupScheduler(optimizer, args.warmup_iters, args.lr)
@@ -284,12 +295,12 @@ def main():
         mode="min",
         patience=args.scheduler_patience,
         factor=args.scheduler_factor,
-        verbose=True,
     )
 
     # Loop over the epochs
     best_val_loss = 1e8
     val_loss = 1e8
+    epochs_no_improve = 0
     for epoch in range(1, args.epochs + 1):
         # training loop
         train(
@@ -308,8 +319,11 @@ def main():
         if val_loss < best_val_loss:
             # save the best model for validation
             best_val_loss = val_loss
+            epochs_no_improve = 0
             best_model_file = args.experiment + "/model_best.pth"
             torch.save(model.state_dict(), best_model_file)
+        else:
+            epochs_no_improve += 1
         # also save the model every epoch
         model_file = args.experiment + "/model_" + str(epoch) + ".pth"
         torch.save(model.state_dict(), model_file)
@@ -320,6 +334,9 @@ def main():
             + best_model_file
             + "` to generate the Kaggle formatted csv file\n"
         )
+        if epochs_no_improve >= args.early_stopping_patience and args.early_stopping:
+            print("Early stopping triggered")
+            break
 
 
 if __name__ == "__main__":
