@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torchvision import datasets
+from torchvision import datasets, transforms
 
 from model_factory import ModelFactory
 from utils import WarmupScheduler
@@ -38,26 +38,30 @@ def opts() -> argparse.ArgumentParser:
     parser.add_argument(
         "--epochs",
         type=int,
-        default=10,
+        default=25,
         metavar="N",
-        help="number of epochs to train (default: 10)",
+        help="number of epochs to train (default: 25)",
     )
     parser.add_argument(
         "--lr",
         type=float,
-        default=0.01,
+        default=0.001,
         metavar="LR",
-        help="learning rate (default: 0.01)",
+        help="learning rate (default: 0.001)",
     )
     parser.add_argument(
         "--momentum",
         type=float,
-        default=0.5,
+        default=0.9,
         metavar="M",
-        help="SGD momentum (default: 0.5)",
+        help="SGD momentum (default: 0.9)",
     )
     parser.add_argument(
-        "--seed", type=int, default=2929, metavar="S", help="random seed (default: 2929)"
+        "--seed",
+        type=int,
+        default=2929,
+        metavar="S",
+        help="random seed (default: 2929)",
     )
     parser.add_argument(
         "--log-interval",
@@ -110,6 +114,11 @@ def opts() -> argparse.ArgumentParser:
         default=0.5,
         metavar="SF",
         help="Factor for ReduceLROnPlateau scheduler",
+    )
+    parser.add_argument(
+        "--freeze_backbone",
+        action="store_true",
+        help="Freeze the backbone of the model",
     )
     args = parser.parse_args()
     return args
@@ -182,37 +191,33 @@ def validation(
     val_loader: torch.utils.data.DataLoader,
     use_cuda: bool,
 ) -> float:
-    """Default Validation Loop.
-
-    Args:
-        model (nn.Module): Model to train
-        val_loader (torch.utils.data.DataLoader): Validation data loader
-        use_cuda (bool): Whether to use cuda or not
-
-    Returns:
-        float: Validation loss
-    """
     model.eval()
     validation_loss = 0
     correct = 0
-    for data, target in val_loader:
-        if use_cuda:
-            data, target = data.cuda(), target.cuda()
-        output = model(data)
-        # sum up batch loss
-        criterion = torch.nn.CrossEntropyLoss(reduction="mean")
-        validation_loss += criterion(output, target).data.item()
-        # get the index of the max log-probability
-        pred = output.data.max(1, keepdim=True)[1]
-        correct += pred.eq(target.data.view_as(pred)).cpu().sum()
+    total = 0  # Total samples
 
-    validation_loss /= len(val_loader.dataset)
+    with torch.no_grad():
+        for data, target in val_loader:
+            if use_cuda:
+                data, target = data.cuda(), target.cuda()
+            output = model(data)
+            # Sum up batch loss
+            criterion = torch.nn.CrossEntropyLoss(reduction="mean")
+            loss = criterion(output, target)
+            validation_loss += loss.item() * data.size(0)
+            # Get predictions
+            _, predicted = torch.max(output.data, 1)
+            total += target.size(0)
+            correct += (predicted == target).sum().item()
+
+    validation_loss /= total
+    accuracy = 100.0 * correct / total
     print(
-        "\nValidation set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)".format(
+        "\nValidation set: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)\n".format(
             validation_loss,
             correct,
-            len(val_loader.dataset),
-            100.0 * correct / len(val_loader.dataset),
+            total,
+            accuracy,
         )
     )
     return validation_loss
@@ -235,6 +240,12 @@ def main():
 
     # load model and transform
     model, data_transforms = ModelFactory(args.model_name).get_all()
+
+    if args.freeze_backbone:
+        for name, param in model.named_parameters():
+            if "fc" not in name:
+                param.requires_grad = False
+
     if use_cuda:
         print("Using GPU")
         model.cuda()
@@ -243,20 +254,29 @@ def main():
 
     # Data initialization and loading
     train_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(args.data + "/train_images", transform=data_transforms),
+        datasets.ImageFolder(
+            args.data + "/train_images", transform=data_transforms["train"]
+        ),
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=args.num_workers,
     )
     val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(args.data + "/val_images", transform=data_transforms),
+        datasets.ImageFolder(
+            args.data + "/val_images", transform=data_transforms["val"]
+        ),
         batch_size=args.batch_size,
         shuffle=False,
         num_workers=args.num_workers,
     )
 
     # Setup optimizer
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = optim.SGD(
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr=args.lr,
+        momentum=args.momentum,
+        weight_decay=1e-4,
+    )
 
     warmup_scheduler = WarmupScheduler(optimizer, args.warmup_iters, args.lr)
     plateau_scheduler = ReduceLROnPlateau(

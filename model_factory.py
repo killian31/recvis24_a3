@@ -1,9 +1,10 @@
 """Python file to instantite the model and the transform that goes with it."""
 
-from torchvision.models import resnet18, resnet34
+import torch.nn as nn
+from torchvision.models import resnet18, resnet34, resnet50
 
 from data import data_transforms
-from model import Net, ResNet
+from model import CustomResNet, Net, ResNet
 
 
 class ModelFactory:
@@ -17,20 +18,35 @@ class ModelFactory:
             return Net()
         elif self.model_name == "resnet":
             return ResNet()
+        elif self.model_name == "custom_resnet":
+            return CustomResNet()
         elif self.model_name == "resnet18_pretrained":
-            return resnet18(pretrained=True)
+            model = resnet18(pretrained=True)
+            num_ftrs = model.fc.in_features
+            model.fc = nn.Linear(num_ftrs, 500)
+            return model
         elif self.model_name == "resnet34_pretrained":
-            return resnet34(pretrained=True)
+            model = resnet34(pretrained=True)
+            num_ftrs = model.fc.in_features
+            model.fc = nn.Linear(num_ftrs, 500)  # Adjust for 500 classes
+            return model
+        elif self.model_name == "resnet50_pretrained":
+            model = resnet50(pretrained=True)
+            num_ftrs = model.fc.in_features
+            model.fc = nn.Linear(num_ftrs, 500)  # Adjust for 500 classes
+            return model
         else:
             raise NotImplementedError("Model not implemented")
 
     def init_transform(self):
-        if (
-            self.model_name == "basic_cnn"
-            or self.model_name == "resnet"
-            or self.model_name == "resnet18_pretrained"
-            or self.model_name == "resnet34_pretrained"
-        ):
+        if self.model_name in [
+            "basic_cnn",
+            "resnet",
+            "custom_resnet",
+            "resnet18_pretrained",
+            "resnet34_pretrained",
+            "resnet50_pretrained",
+        ]:
             return data_transforms
         else:
             raise NotImplementedError("Transform not implemented")

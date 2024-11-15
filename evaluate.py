@@ -60,7 +60,9 @@ def main() -> None:
 
     # load model and transform
     state_dict = torch.load(args.model)
-    model, data_transforms = ModelFactory(args.model_name).get_all()
+    model_factory = ModelFactory(args.model_name)
+    model = model_factory.get_model()
+    data_transforms = model_factory.get_transform()["val"]
     model.load_state_dict(state_dict)
     model.eval()
     if use_cuda:
