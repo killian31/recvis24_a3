@@ -261,7 +261,8 @@ def main():
     model, data_transforms = ModelFactory(args.model_name).get_all()
 
     if args.resume_from is not None:
-        model.load_state_dict(torch.load(args.resume_from))
+        map_location = "cuda" if use_cuda else "cpu"
+        model.load_state_dict(torch.load(args.resume_from, map_location=map_location))
 
     if args.freeze_backbone:
         for name, param in model.named_parameters():
