@@ -23,102 +23,6 @@ class Net(nn.Module):
         return self.fc2(x)
 
 
-class ResidualBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, stride=1):
-        super(ResidualBlock, self).__init__()
-        self.conv1 = nn.Conv2d(
-            in_channels,
-            out_channels,
-            kernel_size=3,
-            stride=stride,
-            padding=1,
-            bias=False,
-        )
-        self.bn1 = nn.BatchNorm2d(out_channels)
-        self.conv2 = nn.Conv2d(
-            out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False
-        )
-        self.bn2 = nn.BatchNorm2d(out_channels)
-        self.relu = nn.ReLU(inplace=True)
-
-        self.downsample = None
-        if stride != 1 or in_channels != out_channels:
-            self.downsample = nn.Sequential(
-                nn.Conv2d(
-                    in_channels, out_channels, kernel_size=1, stride=stride, bias=False
-                ),
-                nn.BatchNorm2d(out_channels),
-            )
-
-    def forward(self, x):
-        residual = x
-
-        out = self.conv1(x)
-        out = self.bn1(out)
-        out = self.relu(out)
-
-        out = self.conv2(out)
-        out = self.bn2(out)
-
-        if self.downsample is not None:
-            residual = self.downsample(x)
-
-        out += residual
-        out = self.relu(out)
-
-        return out
-
-
-class ResNet(nn.Module):
-    def __init__(self, num_blocks=[2, 2, 2], num_classes=500, dropout_rate=0.3):
-        """ResNet model.
-
-        Args:
-            num_blocks (List[int]): List of number of residual blocks in each layer
-            num_layers (int): Number of layers
-            num_classes (int, optional): Number of classes. Defaults to 500.
-            dropout_rate (float, optional): Dropout rate. Defaults to 0.3.
-        """
-        super(ResNet, self).__init__()
-
-        self.dropout_rate = dropout_rate
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=7, stride=2, padding=3, bias=False)
-        self.bn1 = nn.BatchNorm2d(16)
-        self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-
-        self.layer1 = self._make_layer(16, 16, num_blocks[0])
-        self.layer2 = self._make_layer(16, 32, num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(32, 64, num_blocks[2], stride=2)
-
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(64, num_classes)
-
-    def _make_layer(self, in_channels, out_channels, blocks, stride=1):
-        layers = []
-        layers.append(ResidualBlock(in_channels, out_channels, stride))
-        for _ in range(1, blocks):
-            layers.append(ResidualBlock(out_channels, out_channels))
-        return nn.Sequential(*layers)
-
-    def forward(self, x):
-        x = self.relu(self.bn1(self.conv1(x)))
-        x = self.maxpool(x)
-
-        x = self.layer1(x)
-        x = F.dropout(x, p=self.dropout_rate, training=self.training)
-        x = self.layer2(x)
-        x = F.dropout(x, p=self.dropout_rate, training=self.training)
-        x = self.layer3(x)
-        x = F.dropout(x, p=self.dropout_rate, training=self.training)
-
-        x = self.avgpool(x)
-        x = x.view(x.size(0), -1)
-        x = self.fc(x)
-
-        return x
-
-
 class CustomCNN(nn.Module):
     def __init__(self, num_classes=nclasses):
         super(CustomCNN, self).__init__()
@@ -150,5 +54,89 @@ class CustomCNN(nn.Module):
         x = self.global_pool(x)
         x = x.view(x.size(0), -1)  # Flatten
         # Output Layer
+        x = self.fc(x)
+        return x
+
+
+class ResNet(nn.Module):
+    def __init__(self, num_classes=500):
+        super(ResNet, self).__init__()
+
+        # Initial Convolutional Block
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(32)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(64)
+        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)  # Downsample
+
+        # Depthwise Separable Convolution Block 1
+        self.dwconv1 = nn.Conv2d(
+            64, 64, kernel_size=3, stride=1, padding=1, groups=64, bias=False
+        )  # Depthwise
+        self.bn3 = nn.BatchNorm2d(64)
+        self.pwconv1 = nn.Conv2d(
+            64, 128, kernel_size=1, stride=1, bias=False
+        )  # Pointwise
+        self.bn4 = nn.BatchNorm2d(128)
+        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)  # Downsample
+
+        # Residual Block
+        self.res_conv1 = nn.Conv2d(
+            128, 128, kernel_size=3, stride=1, padding=1, bias=False
+        )
+        self.res_bn1 = nn.BatchNorm2d(128)
+        self.res_conv2 = nn.Conv2d(
+            128, 128, kernel_size=3, stride=1, padding=1, bias=False
+        )
+        self.res_bn2 = nn.BatchNorm2d(128)
+
+        # Depthwise Separable Convolution Block 2
+        self.dwconv2 = nn.Conv2d(
+            128, 128, kernel_size=3, stride=1, padding=1, groups=128, bias=False
+        )  # Depthwise
+        self.bn5 = nn.BatchNorm2d(128)
+        self.pwconv2 = nn.Conv2d(
+            128, 256, kernel_size=1, stride=1, bias=False
+        )  # Pointwise
+        self.bn6 = nn.BatchNorm2d(256)
+        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)  # Downsample
+
+        # Final Convolutional Block
+        self.conv3 = nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn7 = nn.BatchNorm2d(512)
+        self.pool4 = nn.AdaptiveAvgPool2d((1, 1))  # Global average pooling
+
+        # Fully Connected Layer
+        self.fc = nn.Linear(512, num_classes)
+
+    def forward(self, x):
+        # Initial Convolutional Block
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = self.pool1(x)
+
+        # Depthwise Separable Convolution Block 1
+        x = F.relu(self.bn3(self.dwconv1(x)))
+        x = F.relu(self.bn4(self.pwconv1(x)))
+        x = self.pool2(x)
+
+        # Residual Block
+        residual = x
+        x = F.relu(self.res_bn1(self.res_conv1(x)))
+        x = self.res_bn2(self.res_conv2(x))
+        x += residual  # Add residual connection
+        x = F.relu(x)
+
+        # Depthwise Separable Convolution Block 2
+        x = F.relu(self.bn5(self.dwconv2(x)))
+        x = F.relu(self.bn6(self.pwconv2(x)))
+        x = self.pool3(x)
+
+        # Final Convolutional Block
+        x = F.relu(self.bn7(self.conv3(x)))
+        x = self.pool4(x)
+
+        # Fully Connected Layer
+        x = x.view(x.size(0), -1)  # Flatten
         x = self.fc(x)
         return x
