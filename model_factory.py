@@ -1,6 +1,7 @@
 """Python file to instantite the model and the transform that goes with it."""
 
 import timm
+import torch.nn as nn
 
 from data import data_transforms
 from model import CustomCNN, Net, ResNet
@@ -23,12 +24,17 @@ class ModelFactory:
             return CustomCNN()
         else:
             try:
-                return timm.create_model(
+                model = timm.create_model(
                     self.model_name, pretrained=True, num_classes=num_classes
                 )
-            except:
+                model.classifier = nn.Sequential(
+                    nn.Dropout(0.3),
+                    nn.Linear(model.classifier.in_features, num_classes),
+                )
+                return model
+            except Exception as e:
                 raise ValueError(
-                    f"Model {self.model_name} not found in timm models or custom models"
+                    f"Model {self.model_name} not found in timm models or custom models. Error: {e}"
                 )
 
     def init_transform(self):

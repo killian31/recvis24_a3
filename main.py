@@ -4,8 +4,8 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torchvision import datasets, transforms
+from torch.optim.lr_scheduler import CosineAnnealingLR, ReduceLROnPlateau
+from torchvision import datasets
 
 from model_factory import ModelFactory
 from utils import WarmupScheduler
@@ -99,21 +99,13 @@ def opts() -> argparse.ArgumentParser:
     parser.add_argument(
         "--scheduler",
         action="store_true",
-        help="Use a ReduceLROnPlateau scheduler",
+        help="Use a CosineAnnealing scheduler",
     )
     parser.add_argument(
-        "--scheduler_patience",
-        type=int,
-        default=5,
-        metavar="SP",
-        help="Patience for ReduceLROnPlateau scheduler",
-    )
-    parser.add_argument(
-        "--scheduler_factor",
+        "--min_lr",
         type=float,
-        default=0.5,
-        metavar="SF",
-        help="Factor for ReduceLROnPlateau scheduler",
+        default=0.00001,
+        help="Minimum learning rate for CosineAnnealing scheduler",
     )
     parser.add_argument(
         "--freeze_backbone",
@@ -151,7 +143,6 @@ def train(
     epoch: int,
     args: argparse.ArgumentParser,
     warmup_scheduler: WarmupScheduler,
-    plateau_scheduler: ReduceLROnPlateau,
     val_loss: float,
 ) -> None:
     """Default Training Loop.
@@ -164,7 +155,7 @@ def train(
         epoch (int): Current epoch
         args (argparse.ArgumentParser): Arguments parsed from command line
         warmup_scheduler (WarmupScheduler): Warmup scheduler
-        plateau_scheduler (ReduceLROnPlateau): Plateau scheduler
+        scheduler (ReduceLROnPlateau): Plateau scheduler
         val_loss (float): Validation loss
     """
     model.train()
@@ -200,9 +191,6 @@ def train(
             100.0 * correct / len(train_loader.dataset),
         )
     )
-
-    if (warmup_scheduler.is_warmup_done() or not args.warmup) and args.scheduler:
-        plateau_scheduler.step(val_loss)
 
 
 def validation(
@@ -298,15 +286,11 @@ def main():
         filter(lambda p: p.requires_grad, model.parameters()),
         lr=args.lr,
         momentum=args.momentum,
+        weight_decay=1e-4,
     )
 
     warmup_scheduler = WarmupScheduler(optimizer, args.warmup_iters, args.lr)
-    plateau_scheduler = ReduceLROnPlateau(
-        optimizer,
-        mode="min",
-        patience=args.scheduler_patience,
-        factor=args.scheduler_factor,
-    )
+    scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=args.min_lr)
 
     # Loop over the epochs
     best_val_loss = 1e8
@@ -322,11 +306,12 @@ def main():
             epoch,
             args,
             warmup_scheduler,
-            plateau_scheduler,
             val_loss,
         )
         # validation loop
         val_loss = validation(model, val_loader, use_cuda)
+        if args.scheduler:
+            scheduler.step()
         if val_loss < best_val_loss:
             # save the best model for validation
             best_val_loss = val_loss
