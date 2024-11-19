@@ -10,7 +10,7 @@ data_transforms = {
             transforms.RandomPerspective(distortion_scale=0.2, p=0.2, fill=255),
             transforms.ToTensor(),
             transforms.RandomErasing(
-                p=0.2, scale=(0.02, 0.15), ratio=(0.3, 3.3), value="random"
+                p=0.2, scale=(0.02, 0.15), ratio=(0.3, 3.3), value=1
             ),
             transforms.Normalize(
                 mean=[0.853660523891449, 0.8536604642868042, 0.8536606431007385],
