@@ -4,7 +4,7 @@ import timm
 import torch.nn as nn
 
 from data import data_transforms
-from model import CustomCNN, Net, ResNet
+from model import CustomCNN, ResNet
 
 num_classes = 500
 
@@ -16,9 +16,7 @@ class ModelFactory:
         self.transform = self.init_transform()
 
     def init_model(self):
-        if self.model_name == "basic_cnn":
-            return Net()
-        elif self.model_name == "resnet":
+        if self.model_name == "resnet":
             return ResNet()
         elif self.model_name == "custom_cnn":
             return CustomCNN()

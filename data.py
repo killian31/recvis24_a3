@@ -6,8 +6,8 @@ data_transforms = {
             transforms.Resize((224, 224)),
             transforms.RandomHorizontalFlip(p=0.5),
             transforms.RandomVerticalFlip(p=0.2),
-            transforms.RandomRotation(degrees=15, fill=1),
-            transforms.RandomPerspective(distortion_scale=0.2, p=0.2),
+            transforms.RandomRotation(degrees=15, fill=255),
+            transforms.RandomPerspective(distortion_scale=0.2, p=0.2, fill=255),
             transforms.ToTensor(),
             transforms.RandomErasing(
                 p=0.2, scale=(0.02, 0.15), ratio=(0.3, 3.3), value="random"

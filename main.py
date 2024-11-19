@@ -4,7 +4,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim.lr_scheduler import CosineAnnealingLR, ReduceLROnPlateau
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchinfo import summary
 from torchvision import datasets
 
@@ -144,7 +144,6 @@ def train(
     epoch: int,
     args: argparse.ArgumentParser,
     warmup_scheduler: WarmupScheduler,
-    val_loss: float,
 ) -> None:
     """Default Training Loop.
 
@@ -156,8 +155,6 @@ def train(
         epoch (int): Current epoch
         args (argparse.ArgumentParser): Arguments parsed from command line
         warmup_scheduler (WarmupScheduler): Warmup scheduler
-        scheduler (ReduceLROnPlateau): Plateau scheduler
-        val_loss (float): Validation loss
     """
     model.train()
     correct = 0
@@ -309,7 +306,6 @@ def main():
             epoch,
             args,
             warmup_scheduler,
-            val_loss,
         )
         # validation loop
         val_loss = validation(model, val_loader, use_cuda)
