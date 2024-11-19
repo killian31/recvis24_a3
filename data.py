@@ -6,14 +6,11 @@ data_transforms = {
             transforms.Resize((224, 224)),
             transforms.RandomHorizontalFlip(p=0.5),
             transforms.RandomVerticalFlip(p=0.2),
-            transforms.RandomRotation(degrees=30),
-            transforms.ColorJitter(
-                brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1
-            ),
-            transforms.RandomPerspective(distortion_scale=0.2, p=0.3),
+            transforms.RandomRotation(degrees=15, fill=1),
+            transforms.RandomPerspective(distortion_scale=0.2, p=0.2),
             transforms.ToTensor(),
             transforms.RandomErasing(
-                p=0.5, scale=(0.02, 0.15), ratio=(0.3, 3.3), value="random"
+                p=0.2, scale=(0.02, 0.15), ratio=(0.3, 3.3), value="random"
             ),
             transforms.Normalize(
                 mean=[0.853660523891449, 0.8536604642868042, 0.8536606431007385],
