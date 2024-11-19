@@ -25,7 +25,7 @@ def opts() -> argparse.ArgumentParser:
     parser.add_argument(
         "--model_name",
         type=str,
-        default="basic_cnn",
+        default="efficientnet_b0",
         metavar="MOD",
         help="Name of the model for model and transform instantiation",
     )
@@ -39,14 +39,14 @@ def opts() -> argparse.ArgumentParser:
     parser.add_argument(
         "--epochs",
         type=int,
-        default=25,
+        default=50,
         metavar="N",
         help="number of epochs to train (default: 25)",
     )
     parser.add_argument(
         "--lr",
         type=float,
-        default=0.001,
+        default=0.05,
         metavar="LR",
         help="learning rate (default: 0.001)",
     )
@@ -93,7 +93,7 @@ def opts() -> argparse.ArgumentParser:
     parser.add_argument(
         "--warmup_iters",
         type=int,
-        default=100,
+        default=450,
         metavar="WI",
         help="Number of warmup iterations",
     )
@@ -121,7 +121,7 @@ def opts() -> argparse.ArgumentParser:
     parser.add_argument(
         "--early_stopping_patience",
         type=int,
-        default=5,
+        default=7,
         metavar="ESP",
         help="Patience for early stopping",
     )
