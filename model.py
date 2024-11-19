@@ -60,26 +60,22 @@ class CustomCNN(nn.Module):
 class ResNet(nn.Module):
     def __init__(self, num_classes=500):
         super(ResNet, self).__init__()
+        self.dropout_rate = 0.3
 
-        # Initial Convolutional Block
         self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(32)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(64)
-        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)  # Downsample
+        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        # Depthwise Separable Convolution Block 1
         self.dwconv1 = nn.Conv2d(
             64, 64, kernel_size=3, stride=1, padding=1, groups=64, bias=False
-        )  # Depthwise
+        )
         self.bn3 = nn.BatchNorm2d(64)
-        self.pwconv1 = nn.Conv2d(
-            64, 128, kernel_size=1, stride=1, bias=False
-        )  # Pointwise
+        self.pwconv1 = nn.Conv2d(64, 128, kernel_size=1, stride=1, bias=False)
         self.bn4 = nn.BatchNorm2d(128)
-        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)  # Downsample
+        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        # Residual Block
         self.res_conv1 = nn.Conv2d(
             128, 128, kernel_size=3, stride=1, padding=1, bias=False
         )
@@ -89,53 +85,44 @@ class ResNet(nn.Module):
         )
         self.res_bn2 = nn.BatchNorm2d(128)
 
-        # Depthwise Separable Convolution Block 2
         self.dwconv2 = nn.Conv2d(
             128, 128, kernel_size=3, stride=1, padding=1, groups=128, bias=False
-        )  # Depthwise
+        )
         self.bn5 = nn.BatchNorm2d(128)
-        self.pwconv2 = nn.Conv2d(
-            128, 256, kernel_size=1, stride=1, bias=False
-        )  # Pointwise
+        self.pwconv2 = nn.Conv2d(128, 256, kernel_size=1, stride=1, bias=False)
         self.bn6 = nn.BatchNorm2d(256)
-        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)  # Downsample
+        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
 
-        # Final Convolutional Block
         self.conv3 = nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn7 = nn.BatchNorm2d(512)
-        self.pool4 = nn.AdaptiveAvgPool2d((1, 1))  # Global average pooling
+        self.pool4 = nn.AdaptiveAvgPool2d((1, 1))
 
-        # Fully Connected Layer
         self.fc = nn.Linear(512, num_classes)
 
     def forward(self, x):
-        # Initial Convolutional Block
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
         x = self.pool1(x)
 
-        # Depthwise Separable Convolution Block 1
         x = F.relu(self.bn3(self.dwconv1(x)))
         x = F.relu(self.bn4(self.pwconv1(x)))
         x = self.pool2(x)
+        x = F.dropout(x, p=self.dropout_rate, training=self.training)
 
-        # Residual Block
         residual = x
         x = F.relu(self.res_bn1(self.res_conv1(x)))
         x = self.res_bn2(self.res_conv2(x))
-        x += residual  # Add residual connection
+        x += residual
         x = F.relu(x)
+        x = F.dropout(x, p=self.dropout_rate, training=self.training)
 
-        # Depthwise Separable Convolution Block 2
         x = F.relu(self.bn5(self.dwconv2(x)))
         x = F.relu(self.bn6(self.pwconv2(x)))
         x = self.pool3(x)
 
-        # Final Convolutional Block
         x = F.relu(self.bn7(self.conv3(x)))
         x = self.pool4(x)
 
-        # Fully Connected Layer
-        x = x.view(x.size(0), -1)  # Flatten
+        x = x.view(x.size(0), -1)
         x = self.fc(x)
         return x

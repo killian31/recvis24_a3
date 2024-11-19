@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import CosineAnnealingLR, ReduceLROnPlateau
+from torchinfo import summary
 from torchvision import datasets
 
 from model_factory import ModelFactory
@@ -262,6 +263,8 @@ def main():
         model.cuda()
     else:
         print("Using CPU")
+
+    print(summary(model, input_size=(args.batch_size, 3, 224, 224), verbose=1))
 
     # Data initialization and loading
     train_loader = torch.utils.data.DataLoader(
