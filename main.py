@@ -4,6 +4,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import wandb
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchinfo import summary
 from torchvision import datasets
@@ -182,6 +183,14 @@ def train(
                     optimizer.param_groups[0]["lr"],
                 )
             )
+            wandb.log(
+                {
+                    "Train Loss": loss.data.item(),
+                    "Train Accuracy": 100.0 * correct / len(train_loader.dataset),
+                    "Learning Rate": optimizer.param_groups[0]["lr"],
+                    "Epoch": epoch,
+                }
+            )
     print(
         "\nTrain set: Accuracy: {}/{} ({:.0f}%)\n".format(
             correct,
@@ -225,6 +234,13 @@ def validation(
             accuracy,
         )
     )
+    wandb.log(
+        {
+            "Validation Loss": validation_loss,
+            "Validation Accuracy": accuracy,
+        }
+    )
+
     return validation_loss
 
 
@@ -232,6 +248,20 @@ def main():
     """Default Main Function."""
     # options
     args = opts()
+
+    wandb.init(
+        project=args.experiment,
+        config={
+            "model_name": args.model_name,
+            "batch_size": args.batch_size,
+            "epochs": args.epochs,
+            "learning_rate": args.lr,
+            "momentum": args.momentum,
+            "warmup": args.warmup,
+            "scheduler": args.scheduler,
+            "freeze_backbone": args.freeze_backbone,
+        },
+    )
 
     # Check if cuda is available
     use_cuda = torch.cuda.is_available()
@@ -317,11 +347,15 @@ def main():
             epochs_no_improve = 0
             best_model_file = args.experiment + "/model_best.pth"
             torch.save(model.state_dict(), best_model_file)
+            wandb.log({"Best Validation Loss": best_val_loss})
+            wandb.save(best_model_file)  # Save the best model to WandB
         else:
             epochs_no_improve += 1
         # also save the model every epoch
         model_file = args.experiment + "/model_" + str(epoch) + ".pth"
         torch.save(model.state_dict(), model_file)
+        wandb.log({"Epoch": epoch})
+        wandb.save(model_file)
         print(
             "Saved model to "
             + model_file
@@ -332,6 +366,8 @@ def main():
         if epochs_no_improve >= args.early_stopping_patience and args.early_stopping:
             print("Early stopping triggered")
             break
+
+    wandb.finish()
 
 
 if __name__ == "__main__":
