@@ -1,25 +1,23 @@
-import torchvision.transforms as transforms
+from torchvision import transforms
 
-# once the images are loaded, how do we pre-process them before being passed into the network
-# by default, we resize the images to 64 x 64 in size
-# and normalize them to mean = 0 and standard-deviation = 1 based on statistics collected from ImageNet
 data_transforms = {
     "train": transforms.Compose(
         [
             transforms.Resize((224, 224)),
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(15),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.RandomVerticalFlip(p=0.2),
+            transforms.RandomRotation(degrees=30),
             transforms.ColorJitter(
-                brightness=0.1, contrast=0.1, saturation=0.1, hue=0.05
+                brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1
+            ),
+            transforms.RandomPerspective(distortion_scale=0.2, p=0.3),
+            transforms.RandomErasing(
+                p=0.5, scale=(0.02, 0.15), ratio=(0.3, 3.3), value="random"
             ),
             transforms.ToTensor(),
             transforms.Normalize(
-                mean=[
-                    0.485,
-                    0.456,
-                    0.406,
-                ],  # TODO: Use dataset-specific mean and std
-                std=[0.229, 0.224, 0.225],
+                mean=[0.853660523891449, 0.8536604642868042, 0.8536606431007385],
+                std=[0.2529744505882263, 0.25297433137893677, 0.2529739737510681],
             ),
         ]
     ),
@@ -28,12 +26,8 @@ data_transforms = {
             transforms.Resize((224, 224)),
             transforms.ToTensor(),
             transforms.Normalize(
-                mean=[
-                    0.485,
-                    0.456,
-                    0.406,
-                ],  # TODO: Use dataset-specific mean and std
-                std=[0.229, 0.224, 0.225],
+                mean=[0.853660523891449, 0.8536604642868042, 0.8536606431007385],
+                std=[0.2529744505882263, 0.25297433137893677, 0.2529739737510681],
             ),
         ]
     ),
