@@ -3,3 +3,4 @@ data_sketches/
 experiment/
 *.pth
 .DS_Store
+wandb/
