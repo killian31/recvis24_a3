@@ -20,7 +20,7 @@ class ModelFactory:
             return ResNet()
         elif self.model_name == "custom_cnn":
             return CustomCNN()
-        else:
+        elif "efficientnet" in self.model_name:
             try:
                 model = timm.create_model(
                     self.model_name, pretrained=True, num_classes=num_classes
@@ -34,6 +34,20 @@ class ModelFactory:
                 raise ValueError(
                     f"Model {self.model_name} not found in timm models or custom models. Error: {e}"
                 )
+        elif "vit" in self.model_name:
+            try:
+                model = timm.create_model(
+                    self.model_name, pretrained=True, num_classes=num_classes
+                )
+                return model
+            except Exception as e:
+                raise ValueError(
+                    f"Model {self.model_name} not found in timm models or custom models. Error: {e}"
+                )
+        else:
+            raise ValueError(
+                f"Model {self.model_name} not found in timm models or custom models."
+            )
 
     def init_transform(self):
         return data_transforms
