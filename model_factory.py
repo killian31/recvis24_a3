@@ -44,6 +44,16 @@ class ModelFactory:
                 raise ValueError(
                     f"Model {self.model_name} not found in timm models or custom models. Error: {e}"
                 )
+        elif "deit" in self.model_name:
+            try:
+                model = timm.create_model(
+                    self.model_name, pretrained=True, num_classes=num_classes
+                )
+                return model
+            except Exception as e:
+                raise ValueError(
+                    f"Model {self.model_name} not found in timm models or custom models. Error: {e}"
+                )
         else:
             raise ValueError(
                 f"Model {self.model_name} not found in timm models or custom models."
