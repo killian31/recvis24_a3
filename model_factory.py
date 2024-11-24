@@ -3,7 +3,7 @@
 import timm
 import torch.nn as nn
 
-from data import data_transforms
+from data import data_transforms, dino_transforms
 from model import CustomCNN, ResNet
 
 num_classes = 500
@@ -34,17 +34,7 @@ class ModelFactory:
                 raise ValueError(
                     f"Model {self.model_name} not found in timm models or custom models. Error: {e}"
                 )
-        elif "vit" in self.model_name:
-            try:
-                model = timm.create_model(
-                    self.model_name, pretrained=True, num_classes=num_classes
-                )
-                return model
-            except Exception as e:
-                raise ValueError(
-                    f"Model {self.model_name} not found in timm models or custom models. Error: {e}"
-                )
-        elif "deit" in self.model_name:
+        elif "vit" in self.model_name or "deit" in self.model_name:
             try:
                 model = timm.create_model(
                     self.model_name, pretrained=True, num_classes=num_classes
@@ -60,7 +50,10 @@ class ModelFactory:
             )
 
     def init_transform(self):
-        return data_transforms
+        if "dinov2" not in self.model_name:
+            return data_transforms
+        else:
+            return dino_transforms
 
     def get_model(self):
         return self.model

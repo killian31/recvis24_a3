@@ -4,11 +4,11 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import wandb
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchinfo import summary
 from torchvision import datasets
 
+import wandb
 from model_factory import ModelFactory
 from utils import WarmupScheduler
 
@@ -291,7 +291,9 @@ def main():
     else:
         print("Using CPU")
 
-    print(summary(model, input_size=(args.batch_size, 3, 224, 224), verbose=1))
+    height, width = data_transforms["train"].transforms[0].size
+
+    print(summary(model, input_size=(args.batch_size, 3, height, width), verbose=1))
 
     # Data initialization and loading
     train_loader = torch.utils.data.DataLoader(
